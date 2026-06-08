@@ -5606,6 +5606,25 @@ class TemplateStorage extends AbstractStorage {
 	async init() {
 		const db = await this.openDatabase();
 		await this.loadTemplates(db);
+
+		// If the DB is empty, populate with defaults
+		if (Object.keys(this.templates).length === 0) {
+			await this.performFullSave(defaultTemplates);
+			return;
+		}
+
+		// Add any missing default templates (like the new "None" template)
+		let templatesModified = false;
+		for (const templateName in defaultTemplates) {
+			if (!this.templates.hasOwnProperty(templateName)) {
+				this.templates[templateName] = defaultTemplates[templateName];
+				templatesModified = true;
+			}
+		}
+		
+		if (templatesModified) {
+			await this.performFullSave(this.templates);
+		}
 	}
 
 	async performFullSave(newTemplates, writeOnly=false) {
@@ -5874,6 +5893,13 @@ Chapter 1
 `;
 
 const defaultTemplates = {
+	'None': {
+		'sysPre': '',
+		'sysSuf': '',
+		'instPre': '',
+		'instSuf': '',
+		'fimTemplate': undefined,
+	},
 	'Alpaca': {
 		'sysPre' : '### System:\\n',
 		'sysSuf' : '',
@@ -7136,6 +7162,10 @@ export function App({ sessionStorage, templateStorage, themeStorage, useSessionS
 
 		const messages = [];
 		const { sysPre, sysSuf, instPre, instSuf } = replaceNewlines(template);
+
+		if (!sysPre && !instPre && !instSuf) {
+        	return [{ role: 'user', content: chatString.trim() }];
+    	}
 
 		let remainingString = chatString.trimStart();
 
